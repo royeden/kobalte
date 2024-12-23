@@ -108,6 +108,7 @@ export function HiddenSelectBase(props: HiddenSelectBaseProps) {
         disabled={formControlContext.isDisabled()}
         readOnly={formControlContext.isReadOnly()}
         onFocus={() => local.focusTrigger()}
+        value={local.selectionManager.firstSelectedKey() ?? ""}
       />
       <select
         ref={mergeRefs(el => (ref = el), local.ref)}

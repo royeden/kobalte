@@ -3534,5 +3534,111 @@ describe("Select", () => {
       expect(onSubmit).toHaveBeenCalledTimes(1);
       expect(value).toEqual("1");
     });
+
+    it("Should handle the `required` prop correctly", async () => {
+      let value;
+
+      const [valueSignal, setValueSignal] = createSignal<DataSourceItem>();
+
+      const onSubmit = jest.fn(e => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        value = Object.fromEntries(formData).test; // same name as the select "name" prop
+      });
+
+      const { container } = render(() => (
+        <form onSubmit={onSubmit}>
+          <Select.Root
+            options={DATA_SOURCE}
+            optionValue="key"
+            optionTextValue="textValue"
+            optionDisabled="disabled"
+            placeholder="Placeholder"
+            required
+            value={valueSignal()}
+            onChange={value => {
+              onValueChange(value);
+              setValueSignal(value);
+            }}
+            name="test"
+            itemComponent={props => (
+              <Select.Item item={props.item}>{props.item.rawValue.label}</Select.Item>
+            )}
+          >
+            <Select.HiddenSelect data-testid="hidden-select" />
+            <Select.Label>Label</Select.Label>
+            <Select.Trigger data-testid="trigger">
+              <Select.Value<DataSourceItem>>{state => state.selectedOption().label}</Select.Value>
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Content>
+                <Select.Listbox />
+              </Select.Content>
+            </Select.Portal>
+          </Select.Root>
+          <button data-testid="submit-button" type="submit">
+            Submit
+          </button>
+        </form>
+      ));
+
+      fireEvent.click(screen.getByTestId("submit-button"));
+      await Promise.resolve();
+
+      expect(onSubmit).toHaveBeenCalledTimes(0);
+      expect(container.querySelector("input")).toBeInvalid();
+
+      const trigger = screen.getByTestId("trigger");
+
+      fireEvent(trigger, createPointerEvent("pointerdown", { pointerId: 1, pointerType: "mouse" }));
+      await Promise.resolve();
+
+      fireEvent(trigger, createPointerEvent("pointerup", { pointerId: 1, pointerType: "mouse" }));
+      await Promise.resolve();
+
+      jest.runAllTimers();
+
+      const listbox = screen.getByRole("listbox");
+
+      const items = within(listbox).getAllByRole("option");
+
+      expect(items.length).toBe(3);
+
+      expect(items[0]).toHaveTextContent("One");
+      expect(items[0]).toHaveAttribute("data-key", "1");
+
+      expect(items[1]).toHaveTextContent("Two");
+      expect(items[1]).toHaveAttribute("data-key", "2");
+
+      expect(items[2]).toHaveTextContent("Three");
+      expect(items[2]).toHaveAttribute("data-key", "3");
+
+      fireEvent(
+        items[2],
+        createPointerEvent("pointerdown", { pointerId: 1, pointerType: "mouse" }),
+      );
+      await Promise.resolve();
+
+      fireEvent(items[2], createPointerEvent("pointerup", { pointerId: 1, pointerType: "mouse" }));
+      await Promise.resolve();
+
+      expect(onValueChange).toHaveBeenCalledTimes(1);
+      expect(onValueChange.mock.calls[0][0]).toBe(DATA_SOURCE[2]);
+
+      expect(listbox).not.toBeVisible();
+
+      // run restore focus rAF
+      jest.runAllTimers();
+
+      expect(document.activeElement).toBe(trigger);
+      expect(trigger).toHaveTextContent("Three");
+      expect(container.querySelector("input")).toBeValid();
+
+      fireEvent.click(screen.getByTestId("submit-button"));
+      await Promise.resolve();
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+
+      expect(value).toEqual("3");
+    });
   });
 });
